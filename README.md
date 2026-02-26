@@ -45,13 +45,15 @@ Once installed, your AI coding agent will automatically use these skills when re
 - "What are the CAN-SPAM and GDPR requirements for my email list?"
 - "Help me design a password reset email"
 
-## Supported SDKs
+## Postmark & Community SDKs
 
 - **Node.js / TypeScript** — [`postmark`](https://www.npmjs.com/package/postmark)
-- **Python** — [`postmarker`](https://pypi.org/project/postmarker/)
+- **Python** — [`postmarker`](https://pypi.org/project/postmarker/)*
 - **Ruby** — [`postmark`](https://rubygems.org/gems/postmark)
 - **PHP** — [`wildbit/postmark-php`](https://packagist.org/packages/wildbit/postmark-php)
 - **.NET** — [`Postmark`](https://www.nuget.org/packages/Postmark)
+
+<small>* Disclaimer: Third-party SDKs are provided "as is" without warranty of any kind. Postmark disclaims all liability for any damages or issues arising from their use.</small>
 
 ## Prerequisites
 
