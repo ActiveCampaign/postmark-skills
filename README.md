@@ -8,7 +8,7 @@
 
 # Postmark Skills
 
-[Agent Skills](https://github.com/anthropics/skills) for the [Postmark](https://postmarkapp.com) email platform. Teach AI coding agents how to send transactional email, process inbound messages, manage templates, and configure webhooks using the Postmark API.
+[Agent Skills](https://github.com/anthropics/skills) for the [Postmark](https://postmarkapp.com) email platform. Teach AI coding agents how to send transactional email, process inbound messages, manage templates, and configure webhooks using the Postmark API. Check out this [blog post](https://postmarkapp.com/blog/teach-your-ai-coding-agent-how-to-send-email-with-postmark-skills?utm_source=ActiveCampaign&utm_medium=github) we wrote for more info.
 
 ## Available Skills
 
