@@ -1,6 +1,6 @@
 # Handlebars Template Syntax
 
-Postmark templates use Handlebars (Mustache-compatible) syntax. Templates are rendered server-side — no client-side library needed.
+Postmark templates use **Mustachio** — a Mustache-based templating language with a few extra capabilities. Templates are rendered server-side — no client-side library needed.
 
 ## Variables
 
@@ -26,28 +26,45 @@ Use triple braces to render raw HTML without escaping:
 
 ## Conditionals
 
+Postmark uses **Mustachio** templating, which does not support `{{#if}}`. Instead, conditionals work via scoped sections and inverted groups.
+
+### Truthy block (value exists and is not falsy)
+
 ```handlebars
-{{#if premium_member}}
+{{#premium_member}}
   <p>Thank you for being a premium member!</p>
-{{else}}
-  <p>Upgrade to premium for exclusive benefits.</p>
-{{/if}}
+{{/premium_member}}
 ```
 
-Falsy values (`false`, `0`, `""`, `null`, `undefined`, `[]`) trigger the `else` branch.
+The block is skipped if `premium_member` is `false`, `null`, `0`, `""`, or missing.
+
+### Inverted group (value is absent or falsy)
+
+Use `{{^property}}` to render content when a value is absent or falsy — the Mustachio equivalent of `else`:
+
+```handlebars
+{{#premium_member}}
+  <p>Thank you for being a premium member!</p>
+{{/premium_member}}
+{{^premium_member}}
+  <p>Upgrade to premium for exclusive benefits.</p>
+{{/premium_member}}
+```
 
 ### Nested Conditionals
 
 ```handlebars
-{{#if order_shipped}}
-  {{#if tracking_number}}
+{{#order_shipped}}
+  {{#tracking_number}}
     <p>Track your order: {{tracking_number}}</p>
-  {{else}}
+  {{/tracking_number}}
+  {{^tracking_number}}
     <p>Your order is on its way!</p>
-  {{/if}}
-{{else}}
+  {{/tracking_number}}
+{{/order_shipped}}
+{{^order_shipped}}
   <p>Your order is being prepared.</p>
-{{/if}}
+{{/order_shipped}}
 ```
 
 ## Iteration
@@ -101,9 +118,9 @@ Template:
 ```handlebars
 Hello {{name}},
 
-{{#if premium_member}}
+{{#premium_member}}
   Thank you for being a premium member!
-{{/if}}
+{{/premium_member}}
 
 Your order {{order_id}} contains:
 {{#each items}}
@@ -141,6 +158,7 @@ Corresponding `TemplateModel`:
 | Mistake | Fix |
 |---------|-----|
 | `{{html_body}}` renders escaped HTML | Use `{{{html_body}}}` for unescaped HTML |
+| Using `{{#if condition}}` | Postmark uses Mustachio — use `{{#property}}` / `{{^property}}` instead |
 | `{{#each}}` items without `this.` | Use `{{this.field}}` inside each blocks |
-| Missing variable shows as blank | Handlebars renders missing vars as empty string — validate your model |
+| Missing variable shows as blank | Mustachio renders missing vars as empty string — validate your model |
 | `{{@content}}` in Layout | Must use triple braces: `{{{@content}}}` |
