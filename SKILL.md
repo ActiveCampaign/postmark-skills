@@ -51,6 +51,8 @@ Postmark uses two types of API tokens:
 
 Get your Server API Token from [Postmark Servers](https://account.postmarkapp.com/servers).
 
+For local or agent automation, you can use [authsome](https://github.com/manojbajaj95/authsome) together with the authsome skill: it helps you sign in, persist credentials, and run commands (or your app) with `POSTMARK_SERVER_TOKEN` (or other env) injected when needed.
+
 ### SDK Installation
 
 Detect the project language and install the appropriate SDK:
