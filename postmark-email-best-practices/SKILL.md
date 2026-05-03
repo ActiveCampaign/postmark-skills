@@ -1,6 +1,6 @@
 ---
 name: postmark-email-best-practices
-description: Use when asking about email deliverability, compliance (CAN-SPAM, GDPR, CASL), transactional email design patterns, list management, testing safely, or general email best practices — provider-agnostic knowledge with Postmark-specific guidance.
+description: "Use when setting up SPF/DKIM/DMARC authentication, diagnosing deliverability issues, implementing CAN-SPAM/GDPR/CASL-compliant unsubscribe flows, designing transactional email patterns (welcome, password reset, receipts), managing bounce suppressions and list hygiene, or testing email safely without hurting sender reputation — provider-agnostic knowledge with Postmark-specific guidance."
 license: MIT
 metadata:
   author: postmark
@@ -9,7 +9,7 @@ metadata:
 
 # Email Best Practices
 
-Postmark has delivered billions of transactional emails over 15+ years. This skill distills that expertise into actionable guidelines for building reliable, compliant, high-deliverability email systems.
+Actionable guidelines for building reliable, compliant, high-deliverability email systems with Postmark.
 
 ## Quick Reference
 
@@ -22,19 +22,31 @@ Postmark has delivered billions of transactional emails over 15+ years. This ski
 | **Testing** | Testing safely without hurting sender reputation |
 | **Sending Reliability** | Idempotency, retry logic, rate limits |
 
-## Deliverability Fundamentals
+## Domain Authentication Setup
 
-The three authentication records every sending domain must have:
+Every sending domain must have SPF, DKIM, and DMARC configured. Missing records are the most common cause of email landing in spam.
 
-| Record | Purpose | Priority |
-|--------|---------|----------|
-| **SPF** | Authorizes servers to send as your domain | Required |
-| **DKIM** | Cryptographically signs emails to prove authenticity | Required |
-| **DMARC** | Policy for handling SPF/DKIM failures | Required |
+### Step-by-step
 
-With Postmark, DKIM is configured automatically when you verify a sender domain. SPF and DMARC must be set up in your DNS.
+1. **Add SPF** — authorize Postmark to send as your domain:
+   ```
+   v=spf1 include:spf.mtasv.net ~all
+   ```
+   If you already have an SPF record, merge — only one SPF TXT record per domain.
 
-See [references/deliverability.md](references/deliverability.md) for DNS setup, reputation factors, and domain warm-up guidance.
+2. **Add DKIM** — verify your sending domain in Postmark, then add the provided CNAME:
+   ```
+   pm._domainkey.yourdomain.com  CNAME  pm.mtasv.net
+   ```
+
+3. **Add DMARC** — start with monitoring, then escalate:
+   ```
+   _dmarc.yourdomain.com  TXT  "v=DMARC1; p=none; rua=mailto:dmarc@yourdomain.com"
+   ```
+
+4. **Verify** — confirm all three pass using [MXToolbox](https://mxtoolbox.com/SuperTool.aspx) or [Postmark's DMARC Digests](https://dmarc.postmarkapp.com). Only proceed to production sends after SPF, DKIM, and DMARC all pass.
+
+See [references/deliverability.md](references/deliverability.md) for DMARC escalation (none → quarantine → reject), reputation factors, and domain warm-up schedules.
 
 ## Transactional vs. Broadcast Email
 
@@ -99,11 +111,29 @@ See [references/testing.md](references/testing.md) for full testing setup and do
 
 Production email systems need idempotency keys, retry logic, and rate limit handling to avoid duplicate sends and silent failures.
 
-See [references/sending-reliability.md](references/sending-reliability.md) for idempotency patterns, retry strategies, and rate limit handling.
+```javascript
+const crypto = require('crypto');
+
+async function sendEmailIdempotent({ to, templateAlias, templateModel, eventType, eventId }) {
+  const key = crypto.createHash('sha256').update(`${eventType}:${eventId}:${to}`).digest('hex');
+  if (await db.emailLog.findOne({ idempotencyKey: key })) return; // already sent
+
+  const result = await client.sendEmailWithTemplate({
+    From: 'no-reply@yourdomain.com',
+    To: to,
+    TemplateAlias: templateAlias,
+    TemplateModel: templateModel,
+    MessageStream: 'outbound'
+  });
+
+  await db.emailLog.insert({ idempotencyKey: key, messageId: result.MessageID, sentAt: new Date() });
+  return result;
+}
+```
+
+See [references/sending-reliability.md](references/sending-reliability.md) for retry strategies with exponential backoff, rate limit handling, and queue patterns.
 
 ## Notes
 
-- Postmark is purpose-built for transactional email — use it for triggered 1:1 emails, not bulk marketing
-- Deliverability is not just about authentication — it's about sending wanted email to engaged recipients
-- A single spam complaint from a real user is more damaging than 1,000 hard bounces
-- Monitor your bounce rate (keep below 2%) and spam complaint rate (keep below 0.04%)
+- A single spam complaint is more damaging than 1,000 hard bounces — suppress complainers immediately
+- Monitor bounce rate (keep below 2%) and spam complaint rate (keep below 0.04%) in the Postmark dashboard
