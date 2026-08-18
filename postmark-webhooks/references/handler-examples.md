@@ -147,24 +147,76 @@ webhookQueue.process(async (job) => {
 });
 ```
 
-## Deduplication
+## Idempotency and Deduplication
 
-Postmark may deliver webhooks more than once. Use `MessageID` + `RecordType` to deduplicate:
+A retry can redeliver an event your endpoint already processed — for example if the endpoint processed the event but responded too slowly. **Handlers must be idempotent.**
+
+Deduplicate on the retry-stable **`X-PM-Webhook-Trace-Id`** header, which stays the same across retries of the same event. Fall back to `MessageID` when the header is absent.
+
+### Node.js / Express
 
 ```javascript
 // Use Redis or a database in production instead of a Set
 const processedEvents = new Set();
 
+function dedupeKey(req) {
+  const traceId = req.headers['x-pm-webhook-trace-id'];
+  if (traceId) return `trace-${traceId}`;
+  return `${req.body.RecordType}-${req.body.MessageID}`; // fallback
+}
+
+app.post('/webhooks/postmark', (req, res) => {
+  res.sendStatus(200); // respond first, then process
+
+  const key = dedupeKey(req);
+  if (processedEvents.has(key)) return; // already handled — do nothing
+  processedEvents.add(key);
+
+  processEvent(req.body);
+});
+```
+
+### Python / Flask
+
+```python
+# Use Redis or a database in production instead of a set
+processed_events = set()
+
+def dedupe_key(request, event):
+    trace_id = request.headers.get('X-PM-Webhook-Trace-Id')
+    if trace_id:
+        return f"trace-{trace_id}"
+    return f"{event.get('RecordType')}-{event.get('MessageID')}"  # fallback
+
+@app.route('/webhooks/postmark', methods=['POST'])
+def handle_webhook():
+    event = request.get_json()
+    key = dedupe_key(request, event)
+
+    if key in processed_events:
+        return '', 200  # already handled — acknowledge and do nothing
+    processed_events.add(key)
+
+    process_event(event)
+    return '', 200
+```
+
+Make the write side idempotent too — prefer upserts keyed on the dedupe key over blind inserts, so a redelivery cannot double-count an open or re-suppress a recipient.
+
+### Reading Retry State
+
+Each retry carries an `X-PM-Retries-Remaining` header. Use it for logging and alerting — never as a dedupe key, since it changes on every attempt.
+
+```javascript
 app.post('/webhooks/postmark', (req, res) => {
   res.sendStatus(200);
 
-  const event = req.body;
-  const key = `${event.RecordType}-${event.MessageID}`;
+  const retriesRemaining = req.headers['x-pm-retries-remaining'];
+  if (retriesRemaining !== undefined) {
+    console.warn(`Retry delivery — ${retriesRemaining} retries remaining`);
+  }
 
-  if (processedEvents.has(key)) return;
-  processedEvents.add(key);
-
-  processEvent(event);
+  // ... dedupe and process
 });
 ```
 
