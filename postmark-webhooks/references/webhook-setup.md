@@ -328,22 +328,39 @@ Postmark retries only **temporary** failures:
 | `429` Too Many Requests | Temporary | Retried |
 | Network timeout | Temporary | Retried |
 | Every other `4xx` — including `400`, `401`, `403`, `404`, `405`, `410`, `422` | **Permanent** | Dropped on the first attempt — no retries |
+| `3xx` | Temporary | Redirects are followed by default (up to 10 hops), so Postmark sees the **final** status and classifies that. A bare `3xx` is treated as temporary and retried — it is not a permanent failure. Don't rely on this: return `200` from the endpoint Postmark posts to. |
 
 ### Schedule
 
-When a failure is retryable, Postmark makes **up to 6 retries**:
+When a failure is retryable, a webhook gets **up to 9 retries over approximately 72 minutes**. The intervals are not a single flat list — delivery runs in tiers, and a webhook that starts failing works through two rungs in order:
 
-| Retry | Interval After Previous |
-|-------|------------------------|
-| 1 | 1 minute |
-| 2 | 5 minutes |
-| 3 | 10 minutes |
-| 4 | 10 minutes |
-| 5 | 10 minutes |
-| 6 | 15 minutes |
+**Rung 1 — standard (3 retries, 21 minutes)**
 
-Total elapsed time is approximately **70 minutes**. The schedule is uniform across all outbound event types and cannot be customized.
+| Retry | Interval After Previous | Cumulative |
+|-------|------------------------|------------|
+| 1 | 1 minute | 1 min |
+| 2 | 5 minutes | 6 min |
+| 3 | 15 minutes | 21 min |
 
-Each retry carries an **`X-PM-Retries-Remaining`** header.
+**Rung 2 — backoff (6 retries, 51 minutes)** — entered after rung 1 is exhausted:
+
+| Retry | Interval After Previous | Cumulative |
+|-------|------------------------|------------|
+| 4 | 1 minute | 22 min |
+| 5 | 5 minutes | 27 min |
+| 6 | 10 minutes | 37 min |
+| 7 | 10 minutes | 47 min |
+| 8 | 10 minutes | 57 min |
+| 9 | 15 minutes | 72 min |
+
+After retry 9 the event is dropped permanently.
+
+Note that the gap does **not** widen monotonically — it resets to 1 minute at the start of rung 2. If you are reconciling delivery gaps against these numbers, expect the 1m/5m pattern to appear twice.
+
+The **same 9-retry ladder applies to every outbound event type** — delivery, bounce, open, click, spam complaint, and subscription change all retry identically, and the schedule cannot be customized per webhook or per event type.
+
+### Reading `X-PM-Retries-Remaining`
+
+Every delivery attempt carries an **`X-PM-Retries-Remaining`** header. It starts at **9** on the first failure and counts down to `0` on the final attempt, spanning both rungs — so a `9` early in an incident is expected, not a sign of misconfiguration.
 
 Always return 200 and process asynchronously. Because a retry can redeliver an event your endpoint already processed, handlers must be idempotent — see [handler-examples.md](handler-examples.md).

@@ -152,23 +152,23 @@ Retries apply to **outbound** webhooks. Inbound email webhooks use a different, 
 | `429` Too Many Requests | Temporary | Retried |
 | Network timeout | Temporary | Retried |
 | Every other `4xx` (400, 401, 403, 404, 405, 410, 422) | **Permanent** | Dropped on the first attempt — no retries |
+| `3xx` | Temporary | Redirects are followed by default, so Postmark classifies the **final** status. A bare `3xx` is retried, not dropped |
 
 ### Retry schedule
 
-When a failure is retryable, Postmark makes **up to 6 retries** on this fixed schedule:
+When a failure is retryable, a webhook gets **up to 9 retries over approximately 72 minutes**. Delivery runs in tiers, so a failing webhook works through two rungs in order:
 
-| Retry | Interval After Previous |
-|-------|------------------------|
-| 1 | 1 minute |
-| 2 | 5 minutes |
-| 3 | 10 minutes |
-| 4 | 10 minutes |
-| 5 | 10 minutes |
-| 6 | 15 minutes |
+| Rung | Retries | Intervals | Elapsed |
+|------|---------|-----------|---------|
+| Standard | 3 | 1 min, 5 min, 15 min | 21 min |
+| Backoff (entered after standard is exhausted) | 6 | 1 min, 5 min, 10 min, 10 min, 10 min, 15 min | 51 min |
+| **Total** | **9** | | **~72 min** |
 
-Total elapsed time is approximately **70 minutes**. This schedule is uniform across all outbound event types and cannot be customized.
+After the 9th retry the event is dropped permanently. The gap does not widen monotonically — it resets to 1 minute when the backoff rung starts.
 
-Each retry carries an **`X-PM-Retries-Remaining`** header.
+The same 9-retry ladder applies to **every outbound event type** and cannot be customized per webhook or per event type.
+
+Each attempt carries an **`X-PM-Retries-Remaining`** header. It starts at **9** on the first failure and counts down across both rungs — a `9` early in an incident is expected, not a misconfiguration.
 
 ## Webhook Statistics
 
@@ -265,6 +265,7 @@ See [references/webhook-setup.md](references/webhook-setup.md) for list, update,
 | Not handling partial data | Some fields may be missing — always check for presence before accessing |
 | Non-idempotent handlers | Retries can redeliver an already-processed event — dedupe on `X-PM-Webhook-Trace-Id`, falling back to `MessageID` |
 | Expecting a 4xx to be retried | Only 5xx, 408, 429, and network timeouts are retried. Every other 4xx is permanent and dropped on the first attempt |
+| Assuming `X-PM-Retries-Remaining: 9` is a bug | 9 is the correct starting value — the ladder is 3 standard retries plus 6 backoff retries |
 | Missing MessageStream filter | Specify `MessageStream` when creating webhooks to avoid cross-stream events |
 | Not tracking metadata | Include `Metadata` when sending to correlate webhook events with your records |
 
@@ -274,7 +275,7 @@ See [references/webhook-setup.md](references/webhook-setup.md) for list, update,
 - Always respond HTTP 200 immediately — process webhook data asynchronously
 - Postmark tests every enabled event type on create and edit; each must return 200 before the webhook is saved as verified. `"Verify": false` skips the test and leaves the webhook unverified, receiving no events
 - A failed verification on create or edit is rejected with HTTP 422 and error code 1364
-- Outbound retries: up to **6 retries** at 1 min, 5 min, 10 min, 10 min, 10 min, 15 min (~70 minutes total), uniform across all outbound event types. Only 5xx, 408, 429, and network timeouts are retried; every other 4xx is permanent and dropped on the first attempt. Each retry carries `X-PM-Retries-Remaining`. Inbound webhooks use a different schedule — see `postmark-inbound`
+- Outbound retries: up to **9 retries** over ~72 minutes, in two rungs — standard (1 min, 5 min, 15 min) then backoff (1 min, 5 min, 10 min, 10 min, 10 min, 15 min). Same ladder for every outbound event type; not customizable. Only 5xx, 408, 429, and network timeouts are retried; every other 4xx is permanent and dropped on the first attempt. `X-PM-Retries-Remaining` starts at 9 and counts down across both rungs. Inbound webhooks use a different schedule — see `postmark-inbound`
 - Persistent failure on one event type marks that event type unverified and pauses delivery for it only — other event types keep flowing
 - Handlers must be idempotent — dedupe on `X-PM-Webhook-Trace-Id`, falling back to `MessageID`
 - Use `MessageID` to correlate webhook events with sent emails

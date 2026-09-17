@@ -27,7 +27,7 @@ Postmark is a transactional email platform built for developers, with 15+ years 
 
 | | Outbound webhooks (`postmark-webhooks`) | Inbound webhooks (`postmark-inbound`) |
 |---|---|---|
-| Retries | Up to **6** retries over ~**70 minutes** | Up to **10** retries over ~**10.5 hours** |
+| Retries | Up to **9** retries over ~**72 minutes** (3 standard + 6 backoff) | Up to **10** retries over ~**10.5 hours** |
 | Retried on | 5xx, 408, 429, network timeouts only — every other 4xx is permanent | Any non-200 response |
 
 Endpoint verification and per-webhook statistics are outbound features — see `postmark-webhooks`.
