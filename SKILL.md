@@ -18,8 +18,19 @@ Postmark is a transactional email platform built for developers, with 15+ years 
 | **Sending emails** | `postmark-send-email` | Sending transactional or broadcast emails — single, batch, bulk, or with templates |
 | **Inbound processing** | `postmark-inbound` | Processing incoming emails via webhooks, building reply-by-email, email-to-ticket, or document extraction |
 | **Template management** | `postmark-templates` | Creating, editing, or sending with Postmark's server-side Handlebars templates and layouts |
-| **Webhooks** | `postmark-webhooks` | Setting up webhooks for delivery, bounce, open, click, spam complaint, and subscription change events |
+| **Webhooks** | `postmark-webhooks` | Setting up outbound webhooks for delivery, bounce, open, click, spam complaint, and subscription change events — including endpoint verification, per-webhook statistics, and retry behavior |
 | **Best practices** | `postmark-email-best-practices` | Deliverability setup, compliance (CAN-SPAM/GDPR/CASL), email design, list management, testing, and sending reliability |
+
+### Outbound and inbound webhooks are different systems
+
+`postmark-webhooks` covers **outbound** event webhooks; `postmark-inbound` covers **inbound** email webhooks. They run on separate infrastructure and have **different retry schedules** — do not apply one to the other:
+
+| | Outbound webhooks (`postmark-webhooks`) | Inbound webhooks (`postmark-inbound`) |
+|---|---|---|
+| Retries | Up to **9** retries over ~**72 minutes** (3 standard + 6 backoff) | Up to **10** retries over ~**10.5 hours** |
+| Retried on | 5xx, 408, 429, network timeouts only — every other 4xx is permanent | Any non-200 response |
+
+Endpoint verification and per-webhook statistics are outbound features — see `postmark-webhooks`.
 
 ## Quick Routing
 
@@ -31,6 +42,9 @@ Postmark is a transactional email platform built for developers, with 15+ years 
 - **"Create an email template"** → `postmark-templates`
 - **"Track deliveries/bounces/opens"** → `postmark-webhooks`
 - **"Set up bounce handling"** → `postmark-webhooks`
+- **"Verify a webhook endpoint" / "my webhook is unverified"** → `postmark-webhooks`
+- **"Webhook statistics / failure rate / why is my webhook paused"** → `postmark-webhooks`
+- **"Webhook retries"** → `postmark-webhooks` (outbound events) or `postmark-inbound` (inbound email)
 - **"Set up SPF/DKIM/DMARC"** → `postmark-email-best-practices`
 - **"Email compliance / GDPR / CAN-SPAM"** → `postmark-email-best-practices`
 - **"Domain warm-up"** → `postmark-email-best-practices`
