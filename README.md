@@ -62,6 +62,8 @@ Once installed, your AI coding agent will automatically use these skills when re
 3. Your Server API Token (from [Postmark Servers](https://account.postmarkapp.com/servers))
 4. Set your token as an environment variable: `POSTMARK_SERVER_TOKEN`
 
+For local or agent automation, you can use [authsome](https://github.com/manojbajaj95/authsome) together with the authsome skill: it helps you sign in, persist credentials, and run commands (or your app) with `POSTMARK_SERVER_TOKEN` (or other env) injected when needed.
+
 ## Why Postmark?
 
 - **Message Streams** — Separate transactional and broadcast email for better deliverability
