@@ -5,7 +5,8 @@
 ```javascript
 const express = require('express');
 const app = express();
-// Postmark never compresses bodies; refusing compressed ones keeps them away from the Brotli decoder (CVE-2026-111497)
+// Postmark never compresses bodies, so refuse compressed ones (CVE-2026-111497). If your app already calls
+// express.json(), add inflate: false to that call instead: a second parser never re-parses, so the body still gets decoded.
 app.use(express.json({ inflate: false }));
 
 app.post('/webhooks/postmark', (req, res) => {

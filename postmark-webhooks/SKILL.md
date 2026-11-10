@@ -261,7 +261,7 @@ See [references/webhook-setup.md](references/webhook-setup.md) for list, update,
 | Treating a 200 from `/verify` as "verified" | A 200 means the check ran. Read the `Success` field — it can be `false` in a 200 response |
 | Verifying an HMAC signature | Postmark does not sign webhooks — there is no signature header. Use Basic Auth, IP allowlisting, and payload-shape validation |
 | No authentication | Use HTTP Basic Auth or custom headers to verify webhook source |
-| Decompressing webhook bodies | Postmark never compresses them. Reject any `Content-Encoding` (Express: `express.json({ inflate: false })`) and run a patched Node.js, so untrusted Brotli never reaches the decoder (CVE-2026-111497) |
+| Decompressing webhook bodies | Postmark never compresses them, so reject any `Content-Encoding` (CVE-2026-111497). In Express, set `inflate: false` on the app's **existing** `express.json()`: a second parser added after it, app-wide or on the route, never re-parses it, so the body is still decoded. The same applies to `express.raw`, `express.text` and `express.urlencoded`: set `inflate: false` on every body parser that handles Postmark traffic. This refuses gzip, deflate and zstd as well as Brotli. Also run a patched Node.js ([October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)) |
 | Ignoring bounce types | Handle `HardBounce` differently from `SoftBounce` — hard bounces require permanent suppression |
 | Not handling partial data | Some fields may be missing — always check for presence before accessing |
 | Non-idempotent handlers | Retries can redeliver an already-processed event — dedupe on `X-PM-Webhook-Trace-Id`, falling back to `MessageID` |

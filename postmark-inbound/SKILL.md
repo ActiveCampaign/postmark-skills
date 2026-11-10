@@ -96,7 +96,8 @@ This is the primary mechanism for threading replies back to conversations or rou
 ```javascript
 const express = require('express');
 const app = express();
-// Postmark never compresses bodies; refusing compressed ones keeps them away from the Brotli decoder (CVE-2026-111497)
+// Postmark never compresses bodies, so refuse compressed ones (CVE-2026-111497). If your app already calls
+// express.json(), add inflate: false to that call instead: a second parser never re-parses, so the body still gets decoded.
 app.use(express.json({ limit: '50mb', inflate: false }));
 
 app.post('/webhooks/inbound', (req, res) => {
@@ -134,7 +135,7 @@ See [references/inbound-api.md](references/inbound-api.md) for inbound rules end
 | Not parsing MailboxHash | Use `+` addressing for routing — it's the primary threading mechanism |
 | Using `TextBody` instead of `StrippedTextReply` | `StrippedTextReply` removes quoted content from replies |
 | No size limit on body parser | Set body parser limit to `50mb` for messages with attachments |
-| Decompressing webhook bodies | Postmark never compresses them. Reject any `Content-Encoding` (Express: `express.json({ inflate: false })`) and run a patched Node.js, so untrusted Brotli never reaches the decoder (CVE-2026-111497) |
+| Decompressing webhook bodies | Postmark never compresses them, so reject any `Content-Encoding` (CVE-2026-111497). In Express, set `inflate: false` on the app's **existing** `express.json()`: a second parser added after it, app-wide or on the route, never re-parses it, so the body is still decoded. The same applies to `express.raw`, `express.text` and `express.urlencoded`: set `inflate: false` on every body parser that handles Postmark traffic. This refuses gzip, deflate and zstd as well as Brotli. Also run a patched Node.js ([October 2026 security releases](https://nodejs.org/en/blog/vulnerability/october-2026-security-releases)) |
 | Slow webhook processing | Process async (queue the work) and respond 200 immediately |
 | Ignoring `ContentID` on attachments | Attachments with `ContentID` are inline images, not standalone files |
 
