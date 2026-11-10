@@ -4,7 +4,7 @@ description: Use when processing incoming emails with Postmark inbound webhooks 
 license: MIT
 metadata:
   author: postmark
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Process Inbound Email with Postmark
@@ -96,7 +96,8 @@ This is the primary mechanism for threading replies back to conversations or rou
 ```javascript
 const express = require('express');
 const app = express();
-app.use(express.json({ limit: '50mb' }));
+// Postmark never compresses bodies; refusing compressed ones keeps them away from the Brotli decoder (CVE-2026-111497)
+app.use(express.json({ limit: '50mb', inflate: false }));
 
 app.post('/webhooks/inbound', (req, res) => {
   const { From, Subject, MailboxHash, StrippedTextReply, TextBody } = req.body;
@@ -133,6 +134,7 @@ See [references/inbound-api.md](references/inbound-api.md) for inbound rules end
 | Not parsing MailboxHash | Use `+` addressing for routing — it's the primary threading mechanism |
 | Using `TextBody` instead of `StrippedTextReply` | `StrippedTextReply` removes quoted content from replies |
 | No size limit on body parser | Set body parser limit to `50mb` for messages with attachments |
+| Decompressing webhook bodies | Postmark never compresses them. Reject any `Content-Encoding` (Express: `express.json({ inflate: false })`) and run a patched Node.js, so untrusted Brotli never reaches the decoder (CVE-2026-111497) |
 | Slow webhook processing | Process async (queue the work) and respond 200 immediately |
 | Ignoring `ContentID` on attachments | Attachments with `ContentID` are inline images, not standalone files |
 

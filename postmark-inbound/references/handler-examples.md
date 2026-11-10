@@ -5,7 +5,8 @@
 ```javascript
 const express = require('express');
 const app = express();
-app.use(express.json({ limit: '50mb' })); // attachments can be large
+// Attachments can be large. Postmark never compresses bodies; refusing compressed ones keeps them away from the Brotli decoder (CVE-2026-111497)
+app.use(express.json({ limit: '50mb', inflate: false }));
 
 app.post('/webhooks/inbound', (req, res) => {
   const inbound = req.body;
